@@ -20,6 +20,7 @@
   .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f4fb}
   .row:last-child{border-bottom:0}
   .muted{color:var(--muted);font-size:13px}
+  .small{font-size:12px;color:var(--muted)}
   @media(max-width:700px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -29,13 +30,41 @@
 
     <div class="grid">
       <div>
-        <label>Vikt (gram)</label>
-        <input id="weight" type="number" step="0.1" value="50">
+        <label>Material (snabbval)</label>
+        <select id="materialSelect">
+          <option value="PLA">PLA</option>
+          <option value="PETG">PETG</option>
+          <option value="ABS">ABS</option>
+          <option value="TPU">TPU</option>
+          <option value="Custom">Eget / Custom</option>
+        </select>
       </div>
 
       <div>
         <label>Filamentpris (SEK / kg)</label>
         <input id="filamentPrice" type="number" step="0.01" value="200">
+      </div>
+
+      <div>
+        <label>Vikt (gram)</label>
+        <input id="weight" type="number" step="0.1" value="50">
+      </div>
+
+      <div>
+        <label>Printermodell (valfritt)</label>
+        <input id="printerModel" type="text" value="Anycubic Kobra S1 Combo">
+      </div>
+
+      <div>
+        <label>Printer effekt (W) — snitt under print</label>
+        <input id="printerPower" type="number" step="1" value="250">
+        <div class="small">Ändra om du mätt med en smartplug. Peaks vid uppvärmning är mycket högre.</div>
+      </div>
+
+      <div>
+        <label>Elpris (SEK / kWh)</label>
+        <input id="elPrice" type="number" step="0.01" value="1.50">
+        <div class="small">Ange ditt avtal eller använd förslaget (spot vs kundpris skiljer sig mycket).</div>
       </div>
 
       <div>
@@ -46,10 +75,21 @@
       <div>
         <label>Maskinkostnad per timme (SEK)</label>
         <input id="machineHour" type="number" step="0.01" value="2.46">
+        <div class="small">Operativa kostnader (ex. avskrivning eller hyrkostnad). Underhåll räknas separat.</div>
       </div>
 
       <div>
-        <label>Arbets­timmar (prep + efterbearbetning)</label>
+        <label>Maskinpris (SEK) — för underhåll/avskrivning</label>
+        <input id="machinePrice" type="number" step="1" value="7000">
+      </div>
+
+      <div>
+        <label>Förväntad livslängd (drifttimmar)</label>
+        <input id="machineLifetime" type="number" step="1" value="10000">
+      </div>
+
+      <div>
+        <label>Arbetstimmar (prep + efterbearbetning)</label>
         <input id="workHours" type="number" step="0.01" value="0.5">
       </div>
 
@@ -59,13 +99,23 @@
       </div>
 
       <div>
+        <label>Efterbearbetning (minuter per del)</label>
+        <input id="finishMinutes" type="number" step="1" value="0">
+      </div>
+
+      <div>
+        <label>Efterbearbetning pris (SEK / tim)</label>
+        <input id="finishRate" type="number" step="0.01" value="200">
+      </div>
+
+      <div>
         <label>Förpackning (SEK)</label>
-        <input id="packaging" type="number" step="0.01" value="10">
+        <input id="packaging" type="number" step="0.01" value="0">
       </div>
 
       <div>
         <label>Felprocent (%) — waste / failed prints</label>
-        <input id="failRate" type="number" step="0.01" value="10">
+        <input id="failRate" type="number" step="0.01" value="0">
       </div>
 
       <div>
@@ -79,7 +129,7 @@
       </div>
 
       <div class="full">
-        <label class="muted">Valfri: använd "Beräkna" när du vill uppdatera.</label>
+        <label class="muted">Valfri: använd "Beräkna" när du vill uppdatera. Snabbval ändrar filamentpris.</label>
       </div>
     </div>
 
@@ -91,9 +141,12 @@
 
     <section class="results" id="results" aria-live="polite">
       <div class="row"><div class="muted">Materialkostnad</div><div id="materialCost">—</div></div>
-      <div class="row"><div class="muted">Maskinkostnad</div><div id="machineCost">—</div></div>
+      <div class="row"><div class="muted">Energikostnad</div><div id="energyCost">—</div></div>
+      <div class="row"><div class="muted">Maskinkostnad (drift)</div><div id="machineCost">—</div></div>
+      <div class="row"><div class="muted">Underhåll (per timme)</div><div id="maintCost">—</div></div>
       <div class="row"><div class="muted">Arbetskostnad</div><div id="laborCost">—</div></div>
       <div class="row"><div class="muted">Misslyckandekost (waste)</div><div id="failCost">—</div></div>
+      <div class="row"><div class="muted">Efterbearbetning (per del)</div><div id="finishCost">—</div></div>
       <div class="row"><div class="muted">Förpackning</div><div id="packCost">—</div></div>
       <div class="row"><strong>Summa (utan vinst)</strong><strong id="sumNoProfit">—</strong></div>
       <div class="row"><div class="muted">Efter vinstmarginal</div><div id="afterProfit">—</div></div>
@@ -104,59 +157,109 @@
 <script>
 function fmt(v){ return (Math.round(v*100)/100).toLocaleString('sv-SE',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' kr'; }
 
+const presets = {
+  PLA: 200,
+  PETG: 220,
+  ABS: 180,
+  TPU: 350
+};
+
+document.getElementById('materialSelect').addEventListener('change', (e)=>{
+  const v = e.target.value;
+  if(presets[v] !== undefined){
+    document.getElementById('filamentPrice').value = presets[v];
+  }
+});
+
 function calculate(){
   const w = parseFloat(document.getElementById('weight').value)||0; // gram
   const filament = parseFloat(document.getElementById('filamentPrice').value)||0; // SEK/kg
   const t = parseFloat(document.getElementById('printTime').value)||0; // hours
-  const machineHour = parseFloat(document.getElementById('machineHour').value)||0;
+  const machineHour = parseFloat(document.getElementById('machineHour').value)||0; // SEK/h operational
+  const machinePrice = parseFloat(document.getElementById('machinePrice').value)||0; // SEK
+  const machineLifetime = parseFloat(document.getElementById('machineLifetime').value)||1; // hours
   const workHours = parseFloat(document.getElementById('workHours').value)||0;
   const workRate = parseFloat(document.getElementById('workRate').value)||0;
   const packaging = parseFloat(document.getElementById('packaging').value)||0;
   const failRate = (parseFloat(document.getElementById('failRate').value)||0)/100;
   const margin = (parseFloat(document.getElementById('margin').value)||0)/100;
   const vat = (parseFloat(document.getElementById('vat').value)||0)/100;
+  const printerPower = parseFloat(document.getElementById('printerPower').value)||0; // W
+  const elPrice = parseFloat(document.getElementById('elPrice').value)||0; // SEK/kWh
+  const finishMinutes = parseFloat(document.getElementById('finishMinutes').value)||0;
+  const finishRate = parseFloat(document.getElementById('finishRate').value)||0;
 
+  // Material
   const materialCost = (w/1000) * filament;
+
+  // Energy (kWh = W/1000 * hours)
+  const energyCost = (printerPower/1000) * t * elPrice;
+
+  // Machine running cost (operational)
   const machineCost = t * machineHour;
+
+  // Maintenance per hour (avskrivning+slitage)
+  const maintPerHour = machinePrice / machineLifetime;
+  const maintTotal = maintPerHour * t;
+
+  // Labor
   const laborCost = workHours * workRate;
-  const base = materialCost + machineCost;
-  const failCost = failRate * base;
-  const sumNoProfit = materialCost + machineCost + laborCost + failCost + packaging;
+
+  // After processing per part
+  const finishCost = (finishMinutes/60) * finishRate;
+
+  // base for fail cost: decide whether fail applies to material+energy+machine (we use material+energy here)
+  const baseForFail = materialCost + energyCost;
+  const failCost = failRate * baseForFail;
+
+  const sumNoProfit = materialCost + energyCost + machineCost + maintTotal + laborCost + finishCost + failCost + packaging;
   const afterProfit = sumNoProfit * (1 + margin);
   const finalPrice = afterProfit * (1 + vat);
 
+  // Update UI
   document.getElementById('materialCost').innerText = fmt(materialCost);
+  document.getElementById('energyCost').innerText = fmt(energyCost);
   document.getElementById('machineCost').innerText = fmt(machineCost);
+  document.getElementById('maintCost').innerText = fmt(maintTotal);
   document.getElementById('laborCost').innerText = fmt(laborCost);
   document.getElementById('failCost').innerText = fmt(failCost);
+  document.getElementById('finishCost').innerText = fmt(finishCost);
   document.getElementById('packCost').innerText = fmt(packaging);
   document.getElementById('sumNoProfit').innerText = fmt(sumNoProfit);
   document.getElementById('afterProfit').innerText = fmt(afterProfit);
   document.getElementById('finalPrice').innerText = fmt(finalPrice);
 
   return {
-    materialCost, machineCost, laborCost, failCost, packaging,
+    materialCost, energyCost, machineCost, maintTotal, laborCost, failCost, finishCost, packaging,
     sumNoProfit, afterProfit, finalPrice
   };
 }
 
 document.getElementById('calcBtn').addEventListener('click', calculate);
 document.getElementById('resetBtn').addEventListener('click', () => {
-  document.getElementById('weight').value = 50;
+  document.getElementById('materialSelect').value = 'PLA';
   document.getElementById('filamentPrice').value = 200;
+  document.getElementById('weight').value = 50;
+  document.getElementById('printerModel').value = 'Anycubic Kobra S1 Combo';
+  document.getElementById('printerPower').value = 250;
+  document.getElementById('elPrice').value = 1.50;
   document.getElementById('printTime').value = 3;
   document.getElementById('machineHour').value = 2.46;
+  document.getElementById('machinePrice').value = 7000;
+  document.getElementById('machineLifetime').value = 10000;
   document.getElementById('workHours').value = 0.5;
   document.getElementById('workRate').value = 200;
-  document.getElementById('packaging').value = 10;
-  document.getElementById('failRate').value = 10;
+  document.getElementById('finishMinutes').value = 0;
+  document.getElementById('finishRate').value = 200;
+  document.getElementById('packaging').value = 0;
+  document.getElementById('failRate').value = 0;
   document.getElementById('margin').value = 40;
   document.getElementById('vat').value = 25;
   calculate();
 });
 document.getElementById('copyBtn').addEventListener('click', () => {
   const r = calculate();
-  const text = `Pris: ${ (Math.round(r.finalPrice*100)/100).toLocaleString('sv-SE') } SEK (inkl. moms)\nDetaljer:\nMaterial: ${r.materialCost.toFixed(2)} SEK\nMaskin: ${r.machineCost.toFixed(2)} SEK\nArbete: ${r.laborCost.toFixed(2)} SEK\nWaste: ${r.failCost.toFixed(2)} SEK\nFörpackning: ${r.packaging.toFixed(2)} SEK\nSumma utan vinst: ${r.sumNoProfit.toFixed(2)} SEK\nEfter vinst: ${r.afterProfit.toFixed(2)} SEK`;
+  const text = `Pris: ${ (Math.round(r.finalPrice*100)/100).toLocaleString('sv-SE') } SEK (inkl. moms)\nDetaljer:\nMaterial: ${r.materialCost.toFixed(2)} SEK\nEnergi: ${r.energyCost.toFixed(2)} SEK\nMaskin drift: ${r.machineCost.toFixed(2)} SEK\nUnderhåll: ${r.maintTotal?.toFixed ? r.maintTotal.toFixed(2) : r.maintTotal} SEK\nArbete: ${r.laborCost.toFixed(2)} SEK\nEfterbearbetning: ${r.finishCost.toFixed(2)} SEK\nWaste: ${r.failCost.toFixed(2)} SEK\nSumma utan vinst: ${r.sumNoProfit.toFixed(2)} SEK\nEfter vinst: ${r.afterProfit.toFixed(2)} SEK`;
   navigator.clipboard?.writeText(text);
   alert('Resultat kopierat till urklipp.');
 });
