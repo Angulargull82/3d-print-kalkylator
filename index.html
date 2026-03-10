@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>3D-print Kalkylator</title>
+<style>
+  :root{--bg:#f6f7fb;--card:#ffffff;--accent:#0b5ed7;--muted:#666;}
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);margin:0;padding:24px;display:flex;align-items:flex-start;justify-content:center;min-height:100vh}
+  .card{width:100%;max-width:880px;background:var(--card);border-radius:12px;box-shadow:0 6px 24px rgba(12,20,40,.08);padding:20px}
+  h1{margin:0 0 12px;font-size:20px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  input[type=number],select{width:100%;padding:8px 10px;border:1px solid #e6e9ef;border-radius:8px;font-size:15px}
+  .full{grid-column:1/-1}
+  .actions{display:flex;gap:10px;margin-top:14px}
+  button{background:var(--accent);color:#fff;padding:10px 14px;border:0;border-radius:8px;cursor:pointer}
+  button.ghost{background:#eef3ff;color:var(--accent);border:1px solid #d9e6ff}
+  .results{margin-top:18px;padding:14px;border-radius:8px;background:#fbfdff;border:1px solid #eef4ff}
+  .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f4fb}
+  .row:last-child{border-bottom:0}
+  .muted{color:var(--muted);font-size:13px}
+  @media(max-width:700px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+  <main class="card" role="main">
+    <h1>3D-print Pris-kalkylator</h1>
+
+    <div class="grid">
+      <div>
+        <label>Vikt (gram)</label>
+        <input id="weight" type="number" step="0.1" value="50">
+      </div>
+
+      <div>
+        <label>Filamentpris (SEK / kg)</label>
+        <input id="filamentPrice" type="number" step="0.01" value="200">
+      </div>
+
+      <div>
+        <label>Printtid (timmar)</label>
+        <input id="printTime" type="number" step="0.01" value="3">
+      </div>
+
+      <div>
+        <label>Maskinkostnad per timme (SEK)</label>
+        <input id="machineHour" type="number" step="0.01" value="2.46">
+      </div>
+
+      <div>
+        <label>Arbets­timmar (prep + efterbearbetning)</label>
+        <input id="workHours" type="number" step="0.01" value="0.5">
+      </div>
+
+      <div>
+        <label>Arbetspris (SEK / tim)</label>
+        <input id="workRate" type="number" step="0.01" value="200">
+      </div>
+
+      <div>
+        <label>Förpackning (SEK)</label>
+        <input id="packaging" type="number" step="0.01" value="10">
+      </div>
+
+      <div>
+        <label>Felprocent (%) — waste / failed prints</label>
+        <input id="failRate" type="number" step="0.01" value="10">
+      </div>
+
+      <div>
+        <label>Vinstmarginal (%) före moms</label>
+        <input id="margin" type="number" step="0.01" value="40">
+      </div>
+
+      <div>
+        <label>Moms (%)</label>
+        <input id="vat" type="number" step="0.01" value="25">
+      </div>
+
+      <div class="full">
+        <label class="muted">Valfri: använd "Beräkna" när du vill uppdatera.</label>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="calcBtn">Beräkna pris</button>
+      <button id="resetBtn" class="ghost" type="button">Återställ värden</button>
+      <button id="copyBtn" class="ghost" type="button">Kopiera resultat</button>
+    </div>
+
+    <section class="results" id="results" aria-live="polite">
+      <div class="row"><div class="muted">Materialkostnad</div><div id="materialCost">—</div></div>
+      <div class="row"><div class="muted">Maskinkostnad</div><div id="machineCost">—</div></div>
+      <div class="row"><div class="muted">Arbetskostnad</div><div id="laborCost">—</div></div>
+      <div class="row"><div class="muted">Misslyckandekost (waste)</div><div id="failCost">—</div></div>
+      <div class="row"><div class="muted">Förpackning</div><div id="packCost">—</div></div>
+      <div class="row"><strong>Summa (utan vinst)</strong><strong id="sumNoProfit">—</strong></div>
+      <div class="row"><div class="muted">Efter vinstmarginal</div><div id="afterProfit">—</div></div>
+      <div class="row"><div class="muted">Slutpris (inkl. moms)</div><div id="finalPrice">—</div></div>
+    </section>
+  </main>
+
+<script>
+function fmt(v){ return (Math.round(v*100)/100).toLocaleString('sv-SE',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' kr'; }
+
+function calculate(){
+  const w = parseFloat(document.getElementById('weight').value)||0; // gram
+  const filament = parseFloat(document.getElementById('filamentPrice').value)||0; // SEK/kg
+  const t = parseFloat(document.getElementById('printTime').value)||0; // hours
+  const machineHour = parseFloat(document.getElementById('machineHour').value)||0;
+  const workHours = parseFloat(document.getElementById('workHours').value)||0;
+  const workRate = parseFloat(document.getElementById('workRate').value)||0;
+  const packaging = parseFloat(document.getElementById('packaging').value)||0;
+  const failRate = (parseFloat(document.getElementById('failRate').value)||0)/100;
+  const margin = (parseFloat(document.getElementById('margin').value)||0)/100;
+  const vat = (parseFloat(document.getElementById('vat').value)||0)/100;
+
+  const materialCost = (w/1000) * filament;
+  const machineCost = t * machineHour;
+  const laborCost = workHours * workRate;
+  const base = materialCost + machineCost;
+  const failCost = failRate * base;
+  const sumNoProfit = materialCost + machineCost + laborCost + failCost + packaging;
+  const afterProfit = sumNoProfit * (1 + margin);
+  const finalPrice = afterProfit * (1 + vat);
+
+  document.getElementById('materialCost').innerText = fmt(materialCost);
+  document.getElementById('machineCost').innerText = fmt(machineCost);
+  document.getElementById('laborCost').innerText = fmt(laborCost);
+  document.getElementById('failCost').innerText = fmt(failCost);
+  document.getElementById('packCost').innerText = fmt(packaging);
+  document.getElementById('sumNoProfit').innerText = fmt(sumNoProfit);
+  document.getElementById('afterProfit').innerText = fmt(afterProfit);
+  document.getElementById('finalPrice').innerText = fmt(finalPrice);
+
+  return {
+    materialCost, machineCost, laborCost, failCost, packaging,
+    sumNoProfit, afterProfit, finalPrice
+  };
+}
+
+document.getElementById('calcBtn').addEventListener('click', calculate);
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('weight').value = 50;
+  document.getElementById('filamentPrice').value = 200;
+  document.getElementById('printTime').value = 3;
+  document.getElementById('machineHour').value = 2.46;
+  document.getElementById('workHours').value = 0.5;
+  document.getElementById('workRate').value = 200;
+  document.getElementById('packaging').value = 10;
+  document.getElementById('failRate').value = 10;
+  document.getElementById('margin').value = 40;
+  document.getElementById('vat').value = 25;
+  calculate();
+});
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const r = calculate();
+  const text = `Pris: ${ (Math.round(r.finalPrice*100)/100).toLocaleString('sv-SE') } SEK (inkl. moms)\nDetaljer:\nMaterial: ${r.materialCost.toFixed(2)} SEK\nMaskin: ${r.machineCost.toFixed(2)} SEK\nArbete: ${r.laborCost.toFixed(2)} SEK\nWaste: ${r.failCost.toFixed(2)} SEK\nFörpackning: ${r.packaging.toFixed(2)} SEK\nSumma utan vinst: ${r.sumNoProfit.toFixed(2)} SEK\nEfter vinst: ${r.afterProfit.toFixed(2)} SEK`;
+  navigator.clipboard?.writeText(text);
+  alert('Resultat kopierat till urklipp.');
+});
+
+// kör första beräkning
+calculate();
+</script>
+</body>
+</html>
