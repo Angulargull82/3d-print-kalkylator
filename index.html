@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>3D-print Kalkylator</title>
+<title>3D-print Kalkylator — förenklad</title>
 <style>
   :root{--bg:#f6f7fb;--card:#ffffff;--accent:#0b5ed7;--muted:#666;}
   body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);margin:0;padding:24px;display:flex;align-items:flex-start;justify-content:center;min-height:100vh}
@@ -11,7 +11,7 @@
   h1{margin:0 0 12px;font-size:20px}
   .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
   label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
-  input[type=number],select{width:100%;padding:8px 10px;border:1px solid #e6e9ef;border-radius:8px;font-size:15px}
+  select,input[type=number]{width:100%;padding:8px 10px;border:1px solid #e6e9ef;border-radius:8px;font-size:15px}
   .full{grid-column:1/-1}
   .actions{display:flex;gap:10px;margin-top:14px}
   button{background:var(--accent);color:#fff;padding:10px 14px;border:0;border-radius:8px;cursor:pointer}
@@ -21,12 +21,13 @@
   .row:last-child{border-bottom:0}
   .muted{color:var(--muted);font-size:13px}
   .small{font-size:12px;color:var(--muted)}
+  .hidden{display:none}
   @media(max-width:700px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
   <main class="card" role="main">
-    <h1>3D-print Pris-kalkylator</h1>
+    <h1>3D-print Pris-kalkylator — förenklad</h1>
 
     <div class="grid">
       <div>
@@ -36,106 +37,94 @@
           <option value="PETG">PETG</option>
           <option value="ABS">ABS</option>
           <option value="TPU">TPU</option>
-          <option value="Custom">Eget / Custom</option>
+          <option value="Custom">Eget (custom)</option>
         </select>
       </div>
 
       <div>
-        <label>Filamentpris (SEK / kg)</label>
-        <input id="filamentPrice" type="number" step="0.01" value="200">
+        <label>Vikt (vanliga val)</label>
+        <select id="weightSelect">
+          <option value="10">~10 g</option>
+          <option value="25">~25 g</option>
+          <option value="50" selected>~50 g</option>
+          <option value="100">~100 g</option>
+          <option value="250">~250 g</option>
+          <option value="custom">Ange exakt</option>
+        </select>
+        <input id="weightCustom" class="hidden" type="number" min="0.1" step="0.1" placeholder="Vikt i gram (ex 47.5)">
       </div>
 
       <div>
-        <label>Vikt (gram)</label>
-        <input id="weight" type="number" step="0.1" value="50">
+        <label>Printtid (vanliga val)</label>
+        <select id="timeSelect">
+          <option value="0.5">~0.5 h</option>
+          <option value="1">~1 h</option>
+          <option value="2">~2 h</option>
+          <option value="3" selected>~3 h</option>
+          <option value="5">~5 h</option>
+          <option value="custom">Ange exakt</option>
+        </select>
+        <input id="timeCustom" class="hidden" type="number" min="0.01" step="0.01" placeholder="Tid i timmar (ex 2.25)">
       </div>
 
       <div>
-        <label>Printermodell (valfritt)</label>
-        <input id="printerModel" type="text" value="Anycubic Kobra S1 Combo">
+        <label>Kvalitet (påverkar printtid)</label>
+        <select id="qualitySelect">
+          <option value="draft">Draft — snabb, tunnare vägg</option>
+          <option value="standard" selected>Standard — bra balans</option>
+          <option value="strong">Strong — mer solid, längre tid</option>
+        </select>
       </div>
 
       <div>
-        <label>Printer effekt (W) — snitt under print</label>
-        <input id="printerPower" type="number" step="1" value="250">
-        <div class="small">Ändra om du mätt med en smartplug. Peaks vid uppvärmning är mycket högre.</div>
+        <label>Finish / efterarbete</label>
+        <select id="finishSelect">
+          <option value="none" selected>Inget</option>
+          <option value="light">Lätt slipning/supportborttag — ~10 min</option>
+          <option value="sand">Noggrann slipning/support — ~20 min</option>
+          <option value="paint">Målning/finish — ~60 min</option>
+        </select>
       </div>
 
       <div>
-        <label>Elpris (SEK / kWh)</label>
-        <input id="elPrice" type="number" step="0.01" value="1.50">
-        <div class="small">Ange ditt avtal eller använd förslaget (spot vs kundpris skiljer sig mycket).</div>
+        <label>Include fail-cost?</label>
+        <select id="failSelect">
+          <option value="0">Nej (jag står för fails)</option>
+          <option value="0.05">Liten (5%)</option>
+          <option value="0.10">Måttlig (10%)</option>
+          <option value="0.20">Stor (20%)</option>
+        </select>
       </div>
 
       <div>
-        <label>Printtid (timmar)</label>
-        <input id="printTime" type="number" step="0.01" value="3">
+        <label>Energi / elpris (snabbval)</label>
+        <select id="elSelect">
+          <option value="low">Lågt (1.00 SEK/kWh)</option>
+          <option value="medium" selected>Standard (1.50 SEK/kWh)</option>
+          <option value="high">Högt (2.50 SEK/kWh)</option>
+          <option value="custom">Ange eget</option>
+        </select>
+        <input id="elCustom" class="hidden" type="number" min="0.01" step="0.01" placeholder="SEK per kWh">
       </div>
 
       <div>
-        <label>Maskinkostnad per timme (SEK)</label>
-        <input id="machineHour" type="number" step="0.01" value="2.46">
-        <div class="small">Operativa kostnader (ex. avskrivning eller hyrkostnad). Underhåll räknas separat.</div>
-      </div>
-
-      <div>
-        <label>Maskinpris (SEK) — för underhåll/avskrivning</label>
-        <input id="machinePrice" type="number" step="1" value="7000">
-      </div>
-
-      <div>
-        <label>Förväntad livslängd (drifttimmar)</label>
-        <input id="machineLifetime" type="number" step="1" value="10000">
-      </div>
-
-      <div>
-        <label>Arbetstimmar (prep + efterbearbetning)</label>
-        <input id="workHours" type="number" step="0.01" value="0.5">
-      </div>
-
-      <div>
-        <label>Arbetspris (SEK / tim)</label>
-        <input id="workRate" type="number" step="0.01" value="200">
-      </div>
-
-      <div>
-        <label>Efterbearbetning (minuter per del)</label>
-        <input id="finishMinutes" type="number" step="1" value="0">
-      </div>
-
-      <div>
-        <label>Efterbearbetning pris (SEK / tim)</label>
-        <input id="finishRate" type="number" step="0.01" value="200">
-      </div>
-
-      <div>
-        <label>Förpackning (SEK)</label>
-        <input id="packaging" type="number" step="0.01" value="0">
-      </div>
-
-      <div>
-        <label>Felprocent (%) — waste / failed prints</label>
-        <input id="failRate" type="number" step="0.01" value="0">
-      </div>
-
-      <div>
-        <label>Vinstmarginal (%) före moms</label>
-        <input id="margin" type="number" step="0.01" value="40">
-      </div>
-
-      <div>
-        <label>Moms (%)</label>
-        <input id="vat" type="number" step="0.01" value="25">
+        <label>Maskinprofil (snabbval för effekt & driftkostnad)</label>
+        <select id="machineProfile">
+          <option value="kobra">Anycubic Kobra S1 Combo — standard</option>
+          <option value="small">Liten printer — låg effekt</option>
+          <option value="pro">Pro / större maskin — högre effekt</option>
+          <option value="custom">Custom</option>
+        </select>
       </div>
 
       <div class="full">
-        <label class="muted">Valfri: använd "Beräkna" när du vill uppdatera. Snabbval ändrar filamentpris.</label>
+        <label class="muted">Tryck på "Beräkna pris". Vill du ändra prisnivåer (filament, el, maskin, efterarbete) öppna koden och leta efter kommentaren "ÄNDRA HÄR" i skriptet — där ändrar du snabbt siffrorna.</label>
       </div>
     </div>
 
     <div class="actions">
       <button id="calcBtn">Beräkna pris</button>
-      <button id="resetBtn" class="ghost" type="button">Återställ värden</button>
+      <button id="resetBtn" class="ghost" type="button">Återställ</button>
       <button id="copyBtn" class="ghost" type="button">Kopiera resultat</button>
     </div>
 
@@ -143,128 +132,142 @@
       <div class="row"><div class="muted">Materialkostnad</div><div id="materialCost">—</div></div>
       <div class="row"><div class="muted">Energikostnad</div><div id="energyCost">—</div></div>
       <div class="row"><div class="muted">Maskinkostnad (drift)</div><div id="machineCost">—</div></div>
-      <div class="row"><div class="muted">Underhåll (per timme)</div><div id="maintCost">—</div></div>
-      <div class="row"><div class="muted">Arbetskostnad</div><div id="laborCost">—</div></div>
+      <div class="row"><div class="muted">Efterarbete (per del)</div><div id="finishCost">—</div></div>
       <div class="row"><div class="muted">Misslyckandekost (waste)</div><div id="failCost">—</div></div>
-      <div class="row"><div class="muted">Efterbearbetning (per del)</div><div id="finishCost">—</div></div>
-      <div class="row"><div class="muted">Förpackning</div><div id="packCost">—</div></div>
       <div class="row"><strong>Summa (utan vinst)</strong><strong id="sumNoProfit">—</strong></div>
-      <div class="row"><div class="muted">Efter vinstmarginal</div><div id="afterProfit">—</div></div>
+      <div class="row"><div class="muted">Efter vinstmarginal (fritt i koden)</div><div id="afterProfit">—</div></div>
       <div class="row"><div class="muted">Slutpris (inkl. moms)</div><div id="finalPrice">—</div></div>
     </section>
   </main>
 
 <script>
+/*
+  ======= ÄNDRA HÄR för att justera priser/presets =======
+  - FILAMENT_PRICES: pris i SEK per kg för varje material.
+  - EL_VALUES: SEK/kWh för presets low/medium/high.
+  - MACHINE_PROFILES: anger [effect_W, driftCost_perHour_SEK, machinePrice_SEK, lifetime_hours]
+    - driftCost_perHour är dina löpande driftkostnader per timme (värde som tidigare machineHour).
+    - machinePrice och lifetime används för att räkna underhåll/avskrivning per timme.
+  - DEFAULT_MARGIN: vinstmarginal som appliceras (0.4 = 40%)
+  - VAT: moms (0.25 = 25%)
+  Ändra bara siffrorna nedan — låt resten av koden vara som den är.
+*/
+const FILAMENT_PRICES = { PLA: 200, PETG: 220, ABS: 180, TPU: 350, Custom: 200 };
+const EL_VALUES = { low:1.00, medium:1.50, high:2.50 };
+const MACHINE_PROFILES = {
+  kobra: { power:250, drift:2.46, price:7000, lifetime:10000 },
+  small: { power:150, drift:1.50, price:3000, lifetime:8000 },
+  pro:   { power:400, drift:5.00, price:15000, lifetime:15000 },
+  custom:{ power:250, drift:2.46, price:7000, lifetime:10000 }
+};
+const DEFAULT_MARGIN = 0.40; // 40% vinst som standard
+const VAT = 0.25; // 25% moms
+/* ===================================================== */
+
 function fmt(v){ return (Math.round(v*100)/100).toLocaleString('sv-SE',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' kr'; }
 
-const presets = {
-  PLA: 200,
-  PETG: 220,
-  ABS: 180,
-  TPU: 350
-};
+// UI toggles for custom inputs
+const weightSelect = document.getElementById('weightSelect');
+const weightCustom = document.getElementById('weightCustom');
+const timeSelect = document.getElementById('timeSelect');
+const timeCustom = document.getElementById('timeCustom');
+const elSelect = document.getElementById('elSelect');
+const elCustom = document.getElementById('elCustom');
+const materialSelect = document.getElementById('materialSelect');
 
-document.getElementById('materialSelect').addEventListener('change', (e)=>{
-  const v = e.target.value;
-  if(presets[v] !== undefined){
-    document.getElementById('filamentPrice').value = presets[v];
-  }
+weightSelect.addEventListener('change', ()=> {
+  weightCustom.classList.toggle('hidden', weightSelect.value !== 'custom');
+});
+timeSelect.addEventListener('change', ()=> {
+  timeCustom.classList.toggle('hidden', timeSelect.value !== 'custom');
+});
+elSelect.addEventListener('change', ()=> {
+  elCustom.classList.toggle('hidden', elSelect.value !== 'custom');
+});
+materialSelect.addEventListener('change', ()=>{
+  // if Custom material chosen we leave FILAMENT_PRICES.Custom as default and allow code edit
+  // no UI custom input for filament price (you edit in code)
 });
 
 function calculate(){
-  const w = parseFloat(document.getElementById('weight').value)||0; // gram
-  const filament = parseFloat(document.getElementById('filamentPrice').value)||0; // SEK/kg
-  const t = parseFloat(document.getElementById('printTime').value)||0; // hours
-  const machineHour = parseFloat(document.getElementById('machineHour').value)||0; // SEK/h operational
-  const machinePrice = parseFloat(document.getElementById('machinePrice').value)||0; // SEK
-  const machineLifetime = parseFloat(document.getElementById('machineLifetime').value)||1; // hours
-  const workHours = parseFloat(document.getElementById('workHours').value)||0;
-  const workRate = parseFloat(document.getElementById('workRate').value)||0;
-  const packaging = parseFloat(document.getElementById('packaging').value)||0;
-  const failRate = (parseFloat(document.getElementById('failRate').value)||0)/100;
-  const margin = (parseFloat(document.getElementById('margin').value)||0)/100;
-  const vat = (parseFloat(document.getElementById('vat').value)||0)/100;
-  const printerPower = parseFloat(document.getElementById('printerPower').value)||0; // W
-  const elPrice = parseFloat(document.getElementById('elPrice').value)||0; // SEK/kWh
-  const finishMinutes = parseFloat(document.getElementById('finishMinutes').value)||0;
-  const finishRate = parseFloat(document.getElementById('finishRate').value)||0;
+  // -> Vikt
+  const weight = (weightSelect.value === 'custom') ? parseFloat(weightCustom.value)||0 : parseFloat(weightSelect.value);
+  // -> Tid i timmar
+  const time = (timeSelect.value === 'custom') ? parseFloat(timeCustom.value)||0 : parseFloat(timeSelect.value);
 
-  // Material
-  const materialCost = (w/1000) * filament;
+  // Kvalitetsmultiplikator (påverkar tid)
+  const quality = document.getElementById('qualitySelect').value;
+  const qualityMultiplier = quality === 'draft' ? 0.7 : (quality === 'standard' ? 1 : 1.5);
 
-  // Energy (kWh = W/1000 * hours)
-  const energyCost = (printerPower/1000) * t * elPrice;
+  // Finish -> minuter
+  const finish = document.getElementById('finishSelect').value;
+  const finishMinutesMap = { none:0, light:10, sand:20, paint:60 };
+  const finishMinutes = finishMinutesMap[finish] || 0;
 
-  // Machine running cost (operational)
-  const machineCost = t * machineHour;
+  // Fail-rate
+  const failRate = parseFloat(document.getElementById('failSelect').value)||0;
 
-  // Maintenance per hour (avskrivning+slitage)
-  const maintPerHour = machinePrice / machineLifetime;
-  const maintTotal = maintPerHour * t;
+  // Materialpris från preset (i SEK/kg)
+  const materialKey = document.getElementById('materialSelect').value;
+  const filamentPricePerKg = FILAMENT_PRICES[materialKey] ?? FILAMENT_PRICES.Custom;
 
-  // Labor
-  const laborCost = workHours * workRate;
+  // Elpris
+  const elPreset = document.getElementById('elSelect').value;
+  const elPrice = elPreset === 'custom' ? (parseFloat(elCustom.value)||EL_VALUES.medium) : (EL_VALUES[elPreset] || EL_VALUES.medium);
 
-  // After processing per part
-  const finishCost = (finishMinutes/60) * finishRate;
+  // Maskinprofil
+  const profileKey = document.getElementById('machineProfile').value;
+  const profile = MACHINE_PROFILES[profileKey] || MACHINE_PROFILES.custom;
 
-  // base for fail cost: decide whether fail applies to material+energy+machine (we use material+energy here)
+  // Beräkningar
+  const materialCost = (weight/1000) * filamentPricePerKg;
+  const effectiveTime = Math.max(0.01, time * qualityMultiplier); // timmar
+  const energyCost = (profile.power/1000) * effectiveTime * elPrice;
+  const machineCost = profile.drift * effectiveTime;
+  const maintPerHour = profile.price / profile.lifetime;
+  const maintTotal = maintPerHour * effectiveTime;
+  const finishCost = (finishMinutes/60) * (200); // default finish-timpris hårdkodat 200 SEK/h; ändra i kommentaren om du vill
   const baseForFail = materialCost + energyCost;
   const failCost = failRate * baseForFail;
 
-  const sumNoProfit = materialCost + energyCost + machineCost + maintTotal + laborCost + finishCost + failCost + packaging;
-  const afterProfit = sumNoProfit * (1 + margin);
-  const finalPrice = afterProfit * (1 + vat);
+  const sumNoProfit = materialCost + energyCost + machineCost + maintTotal + finishCost + failCost;
+  const afterProfit = sumNoProfit * (1 + DEFAULT_MARGIN);
+  const finalPrice = afterProfit * (1 + VAT);
 
-  // Update UI
+  // UI update
   document.getElementById('materialCost').innerText = fmt(materialCost);
   document.getElementById('energyCost').innerText = fmt(energyCost);
   document.getElementById('machineCost').innerText = fmt(machineCost);
-  document.getElementById('maintCost').innerText = fmt(maintTotal);
-  document.getElementById('laborCost').innerText = fmt(laborCost);
-  document.getElementById('failCost').innerText = fmt(failCost);
   document.getElementById('finishCost').innerText = fmt(finishCost);
-  document.getElementById('packCost').innerText = fmt(packaging);
+  document.getElementById('failCost').innerText = fmt(failCost);
   document.getElementById('sumNoProfit').innerText = fmt(sumNoProfit);
   document.getElementById('afterProfit').innerText = fmt(afterProfit);
   document.getElementById('finalPrice').innerText = fmt(finalPrice);
 
-  return {
-    materialCost, energyCost, machineCost, maintTotal, laborCost, failCost, finishCost, packaging,
-    sumNoProfit, afterProfit, finalPrice
-  };
+  return { materialCost, energyCost, machineCost, maintTotal, finishCost, failCost, sumNoProfit, afterProfit, finalPrice };
 }
 
+// Buttons
 document.getElementById('calcBtn').addEventListener('click', calculate);
-document.getElementById('resetBtn').addEventListener('click', () => {
+document.getElementById('resetBtn').addEventListener('click', ()=>{
   document.getElementById('materialSelect').value = 'PLA';
-  document.getElementById('filamentPrice').value = 200;
-  document.getElementById('weight').value = 50;
-  document.getElementById('printerModel').value = 'Anycubic Kobra S1 Combo';
-  document.getElementById('printerPower').value = 250;
-  document.getElementById('elPrice').value = 1.50;
-  document.getElementById('printTime').value = 3;
-  document.getElementById('machineHour').value = 2.46;
-  document.getElementById('machinePrice').value = 7000;
-  document.getElementById('machineLifetime').value = 10000;
-  document.getElementById('workHours').value = 0.5;
-  document.getElementById('workRate').value = 200;
-  document.getElementById('finishMinutes').value = 0;
-  document.getElementById('finishRate').value = 200;
-  document.getElementById('packaging').value = 0;
-  document.getElementById('failRate').value = 0;
-  document.getElementById('margin').value = 40;
-  document.getElementById('vat').value = 25;
+  document.getElementById('weightSelect').value = '50'; weightCustom.classList.add('hidden'); weightCustom.value = '';
+  document.getElementById('timeSelect').value = '3'; timeCustom.classList.add('hidden'); timeCustom.value = '';
+  document.getElementById('qualitySelect').value = 'standard';
+  document.getElementById('finishSelect').value = 'none';
+  document.getElementById('failSelect').value = '0';
+  document.getElementById('elSelect').value = 'medium'; elCustom.classList.add('hidden'); elCustom.value = '';
+  document.getElementById('machineProfile').value = 'kobra';
   calculate();
 });
-document.getElementById('copyBtn').addEventListener('click', () => {
+document.getElementById('copyBtn').addEventListener('click', ()=>{
   const r = calculate();
-  const text = `Pris: ${ (Math.round(r.finalPrice*100)/100).toLocaleString('sv-SE') } SEK (inkl. moms)\nDetaljer:\nMaterial: ${r.materialCost.toFixed(2)} SEK\nEnergi: ${r.energyCost.toFixed(2)} SEK\nMaskin drift: ${r.machineCost.toFixed(2)} SEK\nUnderhåll: ${r.maintTotal?.toFixed ? r.maintTotal.toFixed(2) : r.maintTotal} SEK\nArbete: ${r.laborCost.toFixed(2)} SEK\nEfterbearbetning: ${r.finishCost.toFixed(2)} SEK\nWaste: ${r.failCost.toFixed(2)} SEK\nSumma utan vinst: ${r.sumNoProfit.toFixed(2)} SEK\nEfter vinst: ${r.afterProfit.toFixed(2)} SEK`;
+  const text = `Pris: ${(Math.round(r.finalPrice*100)/100).toLocaleString('sv-SE')} SEK (inkl. moms)\nDetaljer:\nMaterial: ${r.materialCost.toFixed(2)} SEK\nEnergi: ${r.energyCost.toFixed(2)} SEK\nMaskin drift: ${r.machineCost.toFixed(2)} SEK\nEfterarbete: ${r.finishCost.toFixed(2)} SEK\nWaste: ${r.failCost.toFixed(2)} SEK\nSumma utan vinst: ${r.sumNoProfit.toFixed(2)} SEK\nEfter vinst: ${r.afterProfit.toFixed(2)} SEK`;
   navigator.clipboard?.writeText(text);
   alert('Resultat kopierat till urklipp.');
 });
 
-// kör första beräkning
+// första run
 calculate();
 </script>
 </body>
